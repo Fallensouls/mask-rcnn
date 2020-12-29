@@ -184,59 +184,6 @@ class UNIMIBDataset(object):
         return target
 
 
-def get_unimib(root, train=True):
-    classes = json.load(open(os.path.join(root, "classes.json")))
-    if train:
-        annotations = json.load(
-            open(os.path.join(root, "train_region_data.json")))
-    else:
-        annotations = json.load(
-            open(os.path.join(root, "test_region_data.json")))
-    annotations = list(annotations.values())  # don't need the dict keys
-
-    # The VIA tool saves images in the JSON even if they don't have any
-    # annotations. Skip unannotated images.
-    annotations = [a for a in annotations if a['regions']]
-
-    for a in annotations:
-        target = {}
-
-        # Get the x, y coordinaets of points of the polygons that make up
-        # the outline of each object instance. There are stores in the
-        # shape_attributes (see json format above)
-        polygons = [r['shape_attributes'] for r in a['regions'].values()]
-        # print(polygons)
-        x = [p['all_points_x'] for p in polygons]
-        y = [p['all_points_x'] for p in polygons]
-        # get the category list of regions
-        categories = [r['region_attributes']['category']
-                        for r in a['regions'].values()]
-        
-        # get the class_ids
-        class_ids = []
-        for c in categories:
-            class_ids.append(classes[c])
-
-        target["labels"] = torch.as_tensor(class_ids, dtype=torch.int64)
-        if train:
-            image_path = os.path.join(root+'/train', a['filename']+'.jpg')
-        else:
-            image_path = os.path.join(root+'/test', a['filename']+'.jpg')
-        image = skimage.io.imread(image_path)
-        height, width = image.shape[:2]
-
-        masks = gen_mask(polygons, width, height)
-        
-        img = cv2.imread(image_path)
-        img = cv2.flip(img, 1)
-        if height < width:
-            img = cv2.flip(img, 0)
-
-        result = color_splash(img, masks.transpose(1, 2, 0))
-        plt.imshow(result)
-        plt.show()
-
-
 def gen_mask(polygons, width, height):
     """Generate instance masks for an image.
     Returns:

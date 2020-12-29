@@ -19,17 +19,17 @@ def main():
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
     # our dataset has two classes only - background and person
-    num_classes = 2
+    num_classes = 74
     # use our dataset and defined transformations
-    # dataset = UNIMIBDataset('./data/UNIMIB2016', get_transform(train=True))
-    # dataset_test = UNIMIBDataset('./data/UNIMIB2016', get_transform(train=False), False)
+    dataset = UNIMIBDataset('./data/UNIMIB2016', get_transform(train=True))
+    dataset_test = UNIMIBDataset('./data/UNIMIB2016', get_transform(train=False), False)
 
-    dataset = PennFudanDataset('PennFudanPed', get_transform(train=True))
-    dataset_test = PennFudanDataset('PennFudanPed', get_transform(train=False))
+    # dataset = PennFudanDataset('PennFudanPed', get_transform(train=True))
+    # dataset_test = PennFudanDataset('PennFudanPed', get_transform(train=False))
     # # split the dataset in train and test set
-    indices = torch.randperm(len(dataset)).tolist()
-    dataset = torch.utils.data.Subset(dataset, indices[:-50])
-    dataset_test = torch.utils.data.Subset(dataset_test, indices[-50:])
+    # indices = torch.randperm(len(dataset)).tolist()
+    # dataset = torch.utils.data.Subset(dataset, indices[:-50])
+    # dataset_test = torch.utils.data.Subset(dataset_test, indices[-50:])
 
     # define training and validation data loaders
     data_loader = torch.utils.data.DataLoader(
@@ -56,7 +56,7 @@ def main():
                                                    gamma=0.1)
 
     # let's train it for 10 epochs
-    num_epochs = 10
+    num_epochs = 40
 
     for epoch in range(num_epochs):
         # train for one epoch, printing every 10 iterations
@@ -64,7 +64,7 @@ def main():
         # update the learning rate
         lr_scheduler.step()
         # evaluate on the test dataset
-    evaluate(model, data_loader_test, device=device)
+        evaluate(model, data_loader_test, device=device)
     torch.save(model.state_dict(), 'model.pkl')
 
 

@@ -1,4 +1,3 @@
-import skimage
 import numpy as np
 import datetime
 from PIL import Image
@@ -8,6 +7,7 @@ import torch
 import argparse
 import cv2
 import random
+
 
 def detect_and_color_splash(model, image_path=None, video_path=None):
     assert image_path or video_path
@@ -27,14 +27,15 @@ def detect_and_color_splash(model, image_path=None, video_path=None):
         # Color splash
         image = cv2.imread(image_path)
         pred_boxes = [[(i[0], i[1]), (i[2], i[3])] for i in list(r['boxes'].detach().numpy())]
-        pred_class = [category_names[i] for i in list(r['labels'].numpy())]
+        # pred_class = [category_names[i] for i in list(r['labels'].numpy())]
 
         masks = r['masks'].squeeze(1).detach().numpy() >= 0.5
+        print(masks)
         for i in range(len(masks)):
-            rgb_mask = random_colour_masks(masks[i])
+            rgb_mask = random_colour_masks(masks[i]).transpose(1, 0, 2)
             image = cv2.addWeighted(image, 1, rgb_mask, 0.5, 0)
-            cv2.rectangle(image, pred_boxes[i][0], pred_boxes[i][1], color=(0, 255, 0), thickness=rect_th)
-            cv2.putText(image, pred_class[i], pred_boxes[i][0], cv2.FONT_HERSHEY_SIMPLEX, text_size, (0,255,0),thickness=text_th)
+            # cv2.rectangle(image, pred_boxes[i][0], pred_boxes[i][1], color=(0, 255, 0), thickness=rect_th)
+            # cv2.putText(image, pred_class[i], pred_boxes[i][0], cv2.FONT_HERSHEY_SIMPLEX, text_size, (0,255,0),thickness=text_th)
 
         # Save output
         file_name = "splash_{:%Y%m%dT%H%M%S}.png".format(
@@ -59,16 +60,16 @@ def main():
                         help='image path')
     
     args = parser.parse_args()
-    model = get_model_instance_segmentation(num_classes=2)
+    model = get_model_instance_segmentation(num_classes=74)
     model.load_state_dict(torch.load('model.pkl'))
     detect_and_color_splash(model, args.image_path)
 
 
 if __name__ == "__main__":
-    category_names = []
-    with open("./classes.txt", "r") as f:
-        line = f.readline()
-        while(line):
-            category_names.append(line.replace("\n",""))
-            line = f.readline()
+    # category_names = []
+    # with open("./classes.txt", "r") as f:
+    #     line = f.readline()
+    #     while(line):
+    #         category_names.append(line.replace("\n",""))
+    #         line = f.readline()
     main()
