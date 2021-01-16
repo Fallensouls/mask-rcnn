@@ -110,7 +110,10 @@ venv.bak/
 data
 UNIMIB2016
 PennFudanPed
-.ipynb*
 classes.txt
 result.jpg
-model.pkl
+*.pkl
+.jpg
+.png
+output.txt
+models
