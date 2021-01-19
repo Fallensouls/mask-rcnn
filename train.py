@@ -2,7 +2,7 @@ import torch
 
 import utils
 import transforms as T
-from dataloader import UNIMIBDataset, Food201Dataset
+from dataloader import UNIMIBDataset, Food201Dataset, CHFoodDataset
 from engine import train_one_epoch, evaluate
 from model import get_model_instance_segmentation
 import argparse
@@ -17,7 +17,7 @@ def get_transform(train):
 def main():
     parser = argparse.ArgumentParser(description='Mask R-CNN')
     parser.add_argument('--dataset', default='unimib', type=str,
-                        choices=['unimib', 'food201'],
+                        choices=['unimib', 'food201', 'chfood'],
                         help='dataset name')
     args = parser.parse_args()
     # train on the GPU or on the CPU, if a GPU is not available
@@ -34,6 +34,12 @@ def main():
         # use our dataset and defined transformations
         dataset = Food201Dataset('/home/hatsunemiku/dev/mask-rcnn/data/food201', get_transform(train=True))
         dataset_test = Food201Dataset('/home/hatsunemiku/dev/mask-rcnn/data/food201', get_transform(train=False), False)
+
+    elif args.dataset == 'chfood':
+        num_classes = 24
+        # use our dataset and defined transformations
+        dataset = CHFoodDataset('/home/hatsunemiku/dev/mask-rcnn/data/ch_food', get_transform(train=True))
+        dataset_test = CHFoodDataset('/home/hatsunemiku/dev/mask-rcnn/data/ch_food', get_transform(train=False), False)
     else:
         raise Exception()
     # define training and validation data loaders
@@ -57,11 +63,11 @@ def main():
                                 momentum=0.9, weight_decay=0.0005)
     # and a learning rate scheduler
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
-                                                   step_size=2,
+                                                   step_size=10,
                                                    gamma=0.1)
 
     # let's train it for 10 epochs
-    num_epochs = 8
+    num_epochs = 30
 
     for epoch in range(num_epochs):
         # train for one epoch, printing every 10 iterations
@@ -71,7 +77,7 @@ def main():
         lr_scheduler.step()
         # evaluate on the test dataset
         evaluate(model, data_loader_test, device=device)
-        torch.save(model.state_dict(), 'food201_model.pkl')
+        torch.save(model.state_dict(), 'chfood_model.pkl')
 
 if __name__ == "__main__":
     main()

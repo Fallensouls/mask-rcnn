@@ -254,6 +254,106 @@ class Food201Dataset(object):
         return len(self.imgs)
 
 
+class CHFoodDataset(object):
+    def __init__(self, root, transforms, train=True):
+        self.root = root
+        self.transforms = transforms
+        self.train = train
+        if train:
+            self.imgs = list((os.listdir(os.path.join(root, "train_images"))))
+            self.masks = list((os.listdir(os.path.join(root, "train_mask"))))
+        else:
+            self.imgs = list(os.listdir(os.path.join(root, "test_images")))
+            self.masks = list((os.listdir(os.path.join(root, "test_mask"))))
+
+
+    def __getitem__(self, idx):
+        if self.train:
+            img_path = os.path.join(self.root, "train_images", self.imgs[idx])
+            mask_path = os.path.join(self.root, "train_mask", self.masks[idx])
+        else:
+            img_path = os.path.join(self.root, "test_images", self.imgs[idx])
+            mask_path = os.path.join(self.root, "test_mask", self.masks[idx])
+
+        img = Image.open(img_path).convert("RGB")
+        # note that we haven't converted the mask to RGB,
+        # because each color corresponds to a different instance
+        # with 0 being background
+        mask = Image.open(mask_path)
+        # convert the PIL Image into a numpy array
+        mask = np.array(mask)
+        # instances are encoded as different colors
+        obj_ids = np.unique(mask)
+        # print(obj_ids)
+        # first id is the background, so remove it
+        obj_ids = obj_ids[1:] if obj_ids[0] == 0 else obj_ids
+        # print(mask)
+        # split the color-encoded mask into a set
+        # of binary masks
+        masks = mask == obj_ids[:, None, None]
+
+        # get bounding box coordinates for each mask
+        num_objs = len(obj_ids)
+        boxes = []
+        for i in range(num_objs):
+            pos = np.where(masks[i])
+            xmin = np.min(pos[1])
+            xmax = np.max(pos[1])
+            ymin = np.min(pos[0])
+            ymax = np.max(pos[0])
+            boxes.append([xmin, ymin, xmax, ymax])
+
+        # convert everything into a torch.Tensor
+        boxes = torch.as_tensor(boxes, dtype=torch.float32)
+        labels = torch.as_tensor(obj_ids, dtype=torch.int64)
+        
+        # print(labels)
+        masks = torch.as_tensor(masks, dtype=torch.uint8)
+
+        image_id = torch.tensor([idx])
+        area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
+
+        # suppose all instances are not crowd
+        iscrowd = torch.zeros((num_objs,), dtype=torch.int64)
+
+        target = {}
+        target["boxes"] = boxes
+        target["labels"] = labels
+        target["masks"] = masks
+        target["image_id"] = image_id
+        target["area"] = area
+        target["iscrowd"] = iscrowd
+
+        # # 可视化代码
+        # class_map = get_class_map(dataset_name='chfood')
+        # pred_class = [class_map[i] for i in labels.numpy()]
+        # print(pred_class)
+        # boxes = boxes.int()
+        # boxes = [[(i[0], i[1]), (i[2], i[3])] for i in list(boxes.detach().numpy())]
+        # image = np.asarray(img)
+        # # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # for i in range(len(masks)):
+        #     rgb_mask = random_colour_masks(masks[i])
+        #     image = cv2.addWeighted(image, 1, rgb_mask, 0.5, 0)
+        #     cv2.rectangle(image, boxes[i][0], boxes[i][1], color=(0, 255, 0), thickness=3)
+        #     location = (boxes[i][0][0], boxes[i][0][1]-3)
+        #     cv2.putText(image, pred_class[i], location, cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), thickness=2)
+
+        # plt.imshow(image)
+        # plt.show()
+        # plt.imshow(img)
+        # plt.show()
+
+        if self.transforms is not None:
+            img, target = self.transforms(img, target)
+        
+        # print(target)
+        return img, target
+
+    def __len__(self):
+        return len(self.imgs)
+
+
 def get_class_map(dataset_name='food201'):
     if dataset_name == 'food201':
         with open('./data/food201/labels.txt', 'r') as f:
@@ -263,8 +363,12 @@ def get_class_map(dataset_name='food201'):
     elif dataset_name == 'unimib':
         classes = json.load(open('/home/hatsunemiku/dev/mask-rcnn/data/UNIMIB2016/classes.json'))
         classes = {value:key for key,value in classes.items()} 
+    elif dataset_name == 'chfood':
+        classes = json.load(open('/home/hatsunemiku/dev/mask-rcnn/data/ch_food/classes.json'))
+        classes = {value:key for key,value in classes.items()} 
     else:
         raise ValueError('invalid dataset name')
+    
     return classes
 
 def random_colour_masks(image):
@@ -277,62 +381,62 @@ def random_colour_masks(image):
     return coloured_mask
 
 
-# image_path = './data/food201/segmented_test/dumplings/834049.jpg'
-# mask_path = './data/food201/new_masks_test/dumplings/834049.png'
-# image = Image.open(image_path).convert("RGB")
-# image = np.asarray(image)
-# # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-# mask = Image.open(mask_path)
-# # convert the PIL Image into a numpy array
-# mask = np.array(mask)
-# # instances are encoded as different colors
-# obj_ids = np.unique(mask)
-# # print(obj_ids)
-# # print(obj_ids[0])
+image_path = './data/food201/segmented_test/pizza/309892.jpg'
+mask_path = './data/food201/new_masks_test/pizza/309892.png'
+image = Image.open(image_path).convert("RGB")
+image = np.asarray(image)
+# image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+mask = Image.open(mask_path)
+# convert the PIL Image into a numpy array
+mask = np.array(mask)
+# instances are encoded as different colors
+obj_ids = np.unique(mask)
+# print(obj_ids)
+# print(obj_ids[0])
 
-# obj_ids = obj_ids[1:] if obj_ids[0] == 0 else obj_ids
-# # print(obj_ids)
-# # np.set_printoptions(threshold=np.inf)
-# # print(mask)
-# # split the color-encoded mask into a set
-# # of binary masks
-# masks = mask == obj_ids[:, None, None]
+obj_ids = obj_ids[1:] if obj_ids[0] == 0 else obj_ids
+# print(obj_ids)
+# np.set_printoptions(threshold=np.inf)
+# print(mask)
+# split the color-encoded mask into a set
+# of binary masks
+masks = mask == obj_ids[:, None, None]
 
-# # get bounding box coordinates for each mask
-# num_objs_type = len(obj_ids)
-# boxes = []
-# labels = []
-# num_obj = 0
-# split_masks = []
-# for i in range(num_objs_type):
-#     _, binary_mask = cv2.threshold(masks[i].astype(np.uint8), 0, 255, cv2.THRESH_BINARY)
-#     contours, hierarchy = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-#     for j in range(len(contours)):
-#         x, y, w, h = cv2.boundingRect(contours[j])   
-#         boxes.append([x, y, x+w, y+h])
-#         labels.append(obj_ids[i])
-#         num_obj += 1
-#         split_mask = np.zeros(masks[i].shape)
-#         split_mask[y:y+h,x:x+w] = masks[i][y:y+h,x:x+w]
-#         split_masks.append(split_mask)
-# print(num_obj)
-# print(boxes)
-# labels = torch.as_tensor(labels, dtype=torch.int64)
-# print(labels)
-# class_map = get_class_map()
-# pred_class = [class_map[i] for i in labels.numpy()]
-# boxes = torch.as_tensor(boxes, dtype=torch.float32)
+# get bounding box coordinates for each mask
+num_objs_type = len(obj_ids)
+boxes = []
+labels = []
+num_obj = 0
+split_masks = []
+for i in range(num_objs_type):
+    _, binary_mask = cv2.threshold(masks[i].astype(np.uint8), 0, 255, cv2.THRESH_BINARY)
+    contours, hierarchy = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    for j in range(len(contours)):
+        x, y, w, h = cv2.boundingRect(contours[j])   
+        boxes.append([x, y, x+w, y+h])
+        labels.append(obj_ids[i])
+        num_obj += 1
+        split_mask = np.zeros(masks[i].shape)
+        split_mask[y:y+h,x:x+w] = masks[i][y:y+h,x:x+w]
+        split_masks.append(split_mask)
+print(num_obj)
+print(boxes)
+labels = torch.as_tensor(labels, dtype=torch.int64)
+print(labels)
+class_map = get_class_map()
+pred_class = [class_map[i] for i in labels.numpy()]
+boxes = torch.as_tensor(boxes, dtype=torch.float32)
 
-# boxes = boxes.int()
-# boxes = [[(i[0], i[1]), (i[2], i[3])] for i in list(boxes.detach().numpy())]
-# plt.imshow(image)
-# plt.show()
-# for i in range(num_obj):
-#     rgb_mask = random_colour_masks(split_masks[i])
-#     image = cv2.addWeighted(image, 1, rgb_mask, 0.5, 0)
-#     cv2.rectangle(image, boxes[i][0], boxes[i][1], color=(0, 255, 0), thickness=3)
-#     location = (boxes[i][0][0], boxes[i][0][1]-3)
-#     cv2.putText(image, pred_class[i], location, cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), thickness=2)
+boxes = boxes.int()
+boxes = [[(i[0], i[1]), (i[2], i[3])] for i in list(boxes.detach().numpy())]
+plt.imshow(image)
+plt.show()
+for i in range(num_obj):
+    rgb_mask = random_colour_masks(split_masks[i])
+    image = cv2.addWeighted(image, 1, rgb_mask, 0.5, 0)
+    cv2.rectangle(image, boxes[i][0], boxes[i][1], color=(0, 255, 0), thickness=3)
+    location = (boxes[i][0][0], boxes[i][0][1]-3)
+    cv2.putText(image, pred_class[i], location, cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), thickness=2)
 
-# plt.imshow(image)
-# plt.show()
+plt.imshow(image)
+plt.show()

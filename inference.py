@@ -11,7 +11,7 @@ import json
 import os
 import matplotlib.pyplot as plt
 
-def detect_and_color_splash(model, image_path=None, video_path=None, threshold=0.6, dataset_name='unimib'):
+def detect_and_color_splash(model, image_path=None, video_path=None, threshold=0.5, dataset_name='unimib'):
     assert image_path or video_path
     rect_th = 5
     text_th = 5
@@ -21,7 +21,7 @@ def detect_and_color_splash(model, image_path=None, video_path=None, threshold=0
         print("Running on {}".format(image_path))
         # Read image
         image = Image.open(image_path)
-        image = image.transpose(Image.ROTATE_90)
+        # image = image.transpose(Image.ROTATE_90)
         # image = ImageOps.exif_transpose(image)
         image = image.convert("RGB")
 
@@ -54,10 +54,10 @@ def detect_and_color_splash(model, image_path=None, video_path=None, threshold=0
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         for i in range(len(masks)):
             rgb_mask = random_colour_masks(masks[i])
-            image = cv2.addWeighted(image, 1, rgb_mask, 0.8, 0)
+            image = cv2.addWeighted(image, 1, rgb_mask, 0.5, 0)
             cv2.rectangle(image, pred_boxes[i][0], pred_boxes[i][1], color=(0, 255, 0), thickness=rect_th)
-            location = (pred_boxes[i][0][0], pred_boxes[i][0][1]-3)
-            cv2.putText(image, pred_class[i], location, cv2.FONT_HERSHEY_SIMPLEX, 3, (0,255,0), thickness=text_th)
+            # location = (pred_boxes[i][0][0], pred_boxes[i][0][1]-3)
+            # cv2.putText(image, pred_class[i], location, cv2.FONT_HERSHEY_SIMPLEX, 3, (0,255,0), thickness=text_th)
         # Save output
         file_name = "splash_{:%Y%m%dT%H%M%S}.png".format(
             datetime.datetime.now())
@@ -73,7 +73,7 @@ def random_colour_masks(image):
     coloured_mask = np.stack([r, g, b], axis=2)
     return coloured_mask
 
-def get_class_map(dataset_name='unimib'):
+def get_class_map(dataset_name='food201'):
     if dataset_name == 'food201':
         with open('./data/food201/labels.txt', 'r') as f:
             classes = f.readlines()
@@ -82,19 +82,23 @@ def get_class_map(dataset_name='unimib'):
     elif dataset_name == 'unimib':
         classes = json.load(open('/home/hatsunemiku/dev/mask-rcnn/data/UNIMIB2016/classes.json'))
         classes = {value:key for key,value in classes.items()} 
+    elif dataset_name == 'chfood':
+        classes = json.load(open('/home/hatsunemiku/dev/mask-rcnn/data/ch_food/classes.json'))
+        classes = {value:key for key,value in classes.items()} 
     else:
         raise ValueError('invalid dataset name')
+    
     return classes
 
 def main():
     parser = argparse.ArgumentParser(description='Mask R-CNN')
-    parser.add_argument('--image_path', default='/home/hatsunemiku/dev/mask-rcnn/data/UNIMIB2016/test/20151211_124825.jpg', type=str,
+    parser.add_argument('--image_path', default='/home/hatsunemiku/dev/mask-rcnn/data/food201/segmented_test/pizza/309892.jpg', type=str,
                         help='image path')
     args = parser.parse_args()
-    model = get_model_instance_segmentation(num_classes=74)
-    model.load_state_dict(torch.load('model.pkl'))
+    model = get_model_instance_segmentation(num_classes=2)
+    model.load_state_dict(torch.load('food201_model.pkl'))
     model.eval()
-    detect_and_color_splash(model, args.image_path, dataset_name='unimib')
+    detect_and_color_splash(model, args.image_path, dataset_name='food201')
 
 if __name__ == "__main__":
     main()
